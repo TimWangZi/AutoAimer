@@ -39,9 +39,10 @@ std::uint16_t blend(Rgb rgb, Rgba overlay) {
 }
 } // namespace
 
-VideoComposer::VideoComposer()
+VideoComposer::VideoComposer(int cropSize)
     : buffers{std::vector<std::uint16_t>(outputWidth * outputHeight),
-              std::vector<std::uint16_t>(outputWidth * outputHeight)} {
+              std::vector<std::uint16_t>(outputWidth * outputHeight)},
+      cropSize(cropSize) {
 }
 VideoComposer::~VideoComposer() = default;
 
@@ -62,8 +63,15 @@ bool VideoComposer::compose(const FrameView& frame, const HudCanvas& hud, std::s
         error = "Unsupported NV12 dimensions or stride";
         return false;
     }
+    const int maxSize = std::min(frame.width, frame.height);
+    const int size = cropSize == 0 ? maxSize : cropSize;
+    if (size <= 0 || size % 2 || size > maxSize) {
+        error = "Crop size must be positive, even, and at most " + std::to_string(maxSize);
+        return false;
+    }
+    const auto crop = centeredSquare(frame.width, frame.height, size);
 #ifdef AUTOAIMER_BOARD
-    const auto* rgb = rga->convert(frame, error);
+    const auto* rgb = rga->convert(frame, crop, error);
     if (!rgb)
         return false;
 #else
@@ -71,7 +79,6 @@ bool VideoComposer::compose(const FrameView& frame, const HudCanvas& hud, std::s
         error = "Missing NV12 frame";
         return false;
     }
-    const auto crop = centeredSquare(frame.width, frame.height);
 #endif
     auto& pixels = buffers[buffer];
     // 直接在选定画布上采样和混合 HUD；圆外保持初始化的黑色，免去转换。

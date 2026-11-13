@@ -97,6 +97,6 @@ SPI 接口保持同步，调用返回后才允许复用发送数据。异步交�
 | `AUTOAIMER_BOARD` | SDK 真实相机与 RGA | 合成 NV12 图像与 CPU 合成 |
 | `AUTOAIMER_SPI_DISPLAY` | GC9A01 SPI 屏幕 | 空显示接口，可导出 PPM |
 
-当前板上的无摄像头版本使用 **OFF / ON**。主机验证通常使用 **OFF / OFF**。CMake 根据这两个开关挑选实现文件，主循环使用相同的接口。
+SC3336 实机版使用 **ON / ON**，无摄像头固件使用 **OFF / ON**，主机验证通常使用 **OFF / OFF**。CMake 根据这两个开关挑选实现文件，主循环使用相同的接口。
 
 建议顺序：`main.cpp` → `app.cpp` → `ui/menus/view_menu.cpp` → `media/video.cpp` → `media/display_worker.cpp`。需要接硬件时再进入具体驱动。目录和类名保持原样，后续排版统一使用项目内的 `.clang-format`。

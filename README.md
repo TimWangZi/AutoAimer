@@ -23,15 +23,15 @@ ctest --test-dir build-host --output-on-failure
 
 ## 实际摄像头应用
 
-RV1103 应用独立构建。媒体头文件和库使用 SDK 中与 uClibc 工具链匹配的版本：
+标准 Pico 接入 SC3336 后，`autoaimer` 主程序通过 SDK 的 RKAIQ 和 RKMPI 取得 640×480 NV12 帧。RGA 一次裁剪、缩放并转换到 240×240，再叠加原有界面和菜单，最后通过 SPI 显示在 GC9A01 上。SC3336 驱动和 IQ 文件由板载 Buildroot 固件提供。[Luckfox 官方 CSI 文档](https://wiki.luckfox.com/zh/Luckfox-Pico-Plus-Mini/CSI-Camera/)
 
 ```sh
-cmake -S . -B build-rv1103 -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-rv1103.cmake \
+cmake -S . -B build-sc3336 -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-rv1103.cmake \
   -DLUCKFOX_SDK_PATH="$HOME/luckyfox-rv1103-pico/luckfox-pico" \
-  -DAUTOAIMER_BOARD=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build build-rv1103 -j2
+  -DAUTOAIMER_BOARD=ON -DAUTOAIMER_SPI_DISPLAY=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build-sc3336 --target autoaimer -j2
 ```
 
-板端路径按 SDK 的 VI 和 ISP3 示例组织：MIS5001 / RKAIQ → VI 640×480 NV12 DMA-BUF → IM2D 同步缩放和转换 → HUD 合成 → RGB565。应用先验证识别到的传感器和 IQ 文件。现有相机服务必须先释放媒体设备。待完成相机适配和上板后，可以使用 `./autoaimer --frames 60 --ppm /userdata/frame.ppm` 检查合成输出。
+默认裁剪输入帧中央的 480×480 区域。手动运行时用 `--crop-size 320` 可改为中央 320×320，输出尺寸固定为 240×240。自定义边长需要是正偶数，且在输入帧范围和 RGA 缩放能力内。C++ 接口是 `VideoComposer(int cropSize = 0)`，边长 `0` 表示自动裁剪。
 
-这份 SDK（`aaecc58d9`）的标准 Pico Buildroot 板级配置使用 MicroSD，默认板级设备树没有 MIS5001，默认 IQ 清单也没有它。MIS5001 驱动当前只有 2592×1944 的输入模式，超过 Pico 文档标称的 4 MP ISP 输入上限。VI 的 640×480 设定作用于输出，无法降低传感器原始输入。固件需要先确定相机适配方案和烧录介质。
+板端将程序放在 `/usr/bin/autoaimer`，把 [`load_sc3336.sh`](deploy/load_sc3336.sh) 放在 `/etc/autoaimer/`，并更新 [`S98autoaimer`](deploy/overlay-autoaimer/etc/init.d/S98autoaimer)。相机版安装时创建 `/etc/autoaimer/sc3336-enabled`，让服务加载相机模块和 OEM 运行库。调整开机裁剪时，将所需边长写入 `/etc/autoaimer/sc3336-crop-size`，再执行 `/etc/init.d/S98autoaimer restart`。边长文件为空时使用默认值。无摄像头构建通过同一个服务启动。

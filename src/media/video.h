@@ -21,8 +21,9 @@ public:
     /**
      * 方法名称：VideoComposer::VideoComposer
      * 方法作用：分配两块固定尺寸的 RGB565 输出画布。
+     * 说明：cropSize 为输入帧中居中正方形的边长。0 表示使用最大正方形。
      */
-    VideoComposer();
+    explicit VideoComposer(int cropSize = 0);
     /**
      * 方法名称：VideoComposer::~VideoComposer
      * 方法作用：释放输出画布及可选的 RGA 资源。
@@ -57,6 +58,7 @@ public:
 private:
     // 两块最终 RGB565 画布，初始化后不再调整容量，不复制整帧进行交接。
     std::array<std::vector<std::uint16_t>, 2> buffers;
+    int cropSize;
     unsigned currentBuffer = 0;
 #ifdef AUTOAIMER_BOARD
     std::unique_ptr<RgaVideo> rga;

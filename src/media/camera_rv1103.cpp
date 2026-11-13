@@ -14,7 +14,6 @@ constexpr int pipe = 0;
 constexpr int channel = 0;
 constexpr int width = 640;
 constexpr int height = 480;
-constexpr auto iqFile = "mis5001_CMK-OT2115-PC1_30IRC-F16.json";
 constexpr auto ispMode = RK_AIQ_WORKING_MODE_NORMAL;
 
 bool check(int status, const char* step, std::string& error) {
@@ -72,12 +71,18 @@ bool Camera::init(const std::string& iqDir, std::string& error) {
                error))
         return false;
     const char* name = sensor.sensor_info.sensor_name;
-    if (std::string_view(name).find("mis5001") == std::string_view::npos) {
-        error = std::string("Expected MIS5001; media graph reported ") + name;
+    const std::string_view sensorName(name);
+    const char* iqFile;
+    if (sensorName.find("sc3336") != std::string_view::npos)
+        iqFile = "sc3336_CMK-OT2119-PC1_30IRC-F16.json";
+    else if (sensorName.find("mis5001") != std::string_view::npos)
+        iqFile = "mis5001_CMK-OT2115-PC1_30IRC-F16.json";
+    else {
+        error = std::string("Unsupported sensor in media graph: ") + name;
         return false;
     }
     if (!std::ifstream(iqDir + "/" + iqFile)) {
-        error = std::string("Missing MIS5001 IQ file: ") + iqDir + "/" + iqFile;
+        error = std::string("Missing camera IQ file: ") + iqDir + "/" + iqFile;
         return false;
     }
     if (!check(rk_aiq_uapi2_sysctl_preInit_devBufCnt(name, "rkraw_rx", 2), "RKAIQ raw buffers",

@@ -133,7 +133,8 @@ def main():
                 require(expected_hash == original_hashes[name], "Unintended kernel/resource change")
 
     # ext4 离线安装无需 root 或 loop mount。旧自检仅从新镜像副本移除。
-    for obsolete in ("/usr/bin/autoaimer-selftest", "/etc/init.d/S98autoaimer-selftest"):
+    for obsolete in ("/usr/bin/autoaimer-selftest", "/etc/init.d/S98autoaimer-selftest",
+                     "/etc/autoaimer/sc3336-enabled"):
         debugfs(rootfs, "rm "+obsolete, True)
     debugfs(rootfs, "mkdir /etc/autoaimer", True)
     installed = {

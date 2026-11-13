@@ -1,15 +1,19 @@
 #include "app.h"
 #include "media/display_worker.h"
+#include "media/video.h"
+#include <algorithm>
 #include <iostream>
 
 namespace autoaimer {
 int App::run(const Options& options, bool (*running)()) {
     std::string error;
+    // 合成器先于 Camera 销毁，RGA 缓冲必须在关闭 RKMPI 前释放。
+    VideoComposer video(options.cropSize);
     if (!camera.init(options.iqDir, error) || !video.init(error)) {
         std::cerr << error << '\n';
         return 1;
     }
-    // 局部对象先停止并 join，随后 App 的相机、合成器和缓冲区才可能销毁。
+    // 发送线程先停止并 join，随后才释放合成器的画布。
     DisplayWorker output(display, {video.output(0), video.output(1)});
     if (!output.start(error)) {
         std::cerr << error << '\n';
@@ -47,6 +51,15 @@ int App::run(const Options& options, bool (*running)()) {
                     std::cerr << error << '\n';
                     return 1;
                 }
+#ifdef AUTOAIMER_BOARD
+                if (frames == 0) {
+                    const auto& source = frame.view();
+                    const int crop = options.cropSize == 0 ? std::min(source.width, source.height)
+                                                           : options.cropSize;
+                    std::cerr << "Camera NV12 " << source.width << 'x' << source.height << ", crop "
+                              << crop << " -> " << outputWidth << 'x' << outputHeight << '\n';
+                }
+#endif
                 ++frames;
                 consecutiveTimeouts = 0;
                 break;

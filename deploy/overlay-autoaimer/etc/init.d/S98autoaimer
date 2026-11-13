@@ -1,6 +1,6 @@
 #!/bin/sh
-# 无摄像头版本：合成帧由 camera_sim 提供，界面不注入假传感器数据。
 APP=/usr/bin/autoaimer
+CAMERA=/etc/autoaimer/sc3336-enabled
 PID=/var/run/autoaimer.pid
 DTBO=/etc/autoaimer/gc9a01-speed-40mhz.dtbo
 OVERLAY=/sys/kernel/config/device-tree/overlays/autoaimer-display
@@ -20,16 +20,34 @@ case "$1" in
                 exit 1
             fi
         fi
-        echo "Starting AutoAimer GC9A01 display"
+        set -- --spi-hz 40000000
+        if [ -f "$CAMERA" ]; then
+            sh /etc/autoaimer/load_sc3336.sh || exit 1
+            export LD_LIBRARY_PATH="/oem/usr/lib:/oem/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            CROP=/etc/autoaimer/sc3336-crop-size
+            if [ -s "$CROP" ]; then
+                set -- "$@" --crop-size "$(cat "$CROP")"
+            fi
+        fi
+        echo "Starting ${APP##*/} on GC9A01"
         # 独立会话保证 ADB 断开后继续运行；保留日志，不用会吞掉输出的 -b。
-        setsid start-stop-daemon -S -m -p "$PID" -x "$APP" -- --spi-hz 40000000 </dev/null >>/tmp/autoaimer.log 2>&1 &
+        setsid start-stop-daemon -S -m -p "$PID" -x "$APP" -- "$@" </dev/null >>/tmp/autoaimer.log 2>&1 &
         ;;
     stop)
-        start-stop-daemon -K -p "$PID" -x "$APP"
+        start-stop-daemon -K -o -p "$PID" -x "$APP" || exit 1
+        # 等 SDK 停止采集并释放 VI 与 SPI，再允许下一次启动。
+        remaining=8
+        while start-stop-daemon -K -t -q -p "$PID" -x "$APP"; do
+            if [ "$remaining" -eq 0 ]; then
+                echo "${APP##*/} did not stop" >&2
+                exit 1
+            fi
+            sleep 1
+            remaining=$((remaining - 1))
+        done
         ;;
     restart)
-        "$0" stop
-        sleep 1
+        "$0" stop || exit 1
         "$0" start
         ;;
     *) echo "Usage: $0 {start|stop|restart}"; exit 2 ;;

@@ -30,6 +30,7 @@ void usage() {
 #ifdef AUTOAIMER_BOARD
     std::cerr << " [--iq-dir PATH]";
 #endif
+    std::cerr << " [--crop-size EVEN_PIXELS]";
 #ifdef AUTOAIMER_SPI_DISPLAY
     std::cerr << " [--spi-hz 100000..40000000]";
 #endif
@@ -60,6 +61,15 @@ bool parse(int argc, char** argv, autoaimer::Options& options, std::uint32_t& sp
             continue;
         }
 #endif
+        if (key == "--crop-size" && i + 1 < argc) {
+            const std::string_view value = argv[++i];
+            const auto end = value.data() + value.size();
+            const auto result = std::from_chars(value.data(), end, options.cropSize);
+            if (result.ec == std::errc{} && result.ptr == end && options.cropSize > 0 &&
+                options.cropSize % 2 == 0)
+                continue;
+            return false;
+        }
         if (key == "--ppm" && i + 1 < argc) {
             options.ppm = argv[++i];
             continue;

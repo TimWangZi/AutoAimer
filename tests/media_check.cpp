@@ -114,6 +114,33 @@ bool checkSingleCrop() {
     return true;
 }
 
+bool checkAdjustedCrop() {
+    // 18×18 居中区域的理论起点是 (11, 5)，NV12 需要向下对齐到 (10, 4)。
+    constexpr int width = 40, height = 28, stride = 48;
+    std::array<std::uint8_t, stride * height * 3 / 2> nv12{};
+    std::fill(nv12.begin(), nv12.begin() + stride * height, 16);
+    std::fill(nv12.begin() + stride * height, nv12.end(), 128);
+    for (int y = 4; y < 22; ++y)
+        std::fill_n(nv12.data() + y * stride + 10, 18, 235);
+    const autoaimer::FrameView frame{nv12.data(), width, height, stride, height};
+    autoaimer::HudCanvas hud(240, 240);
+    autoaimer::VideoComposer video(18);
+    std::string error;
+    if (!video.init(error) || !video.compose(frame, hud, error))
+        return false;
+    const auto output = video.output();
+    for (const int i : {120, 120 * 240, 120 * 240 + 239, 239 * 240 + 120}) {
+        if (output.pixels[i] != 0xffff)
+            return false;
+    }
+    for (const int invalidSize : {-2, 17, 30}) {
+        autoaimer::VideoComposer invalid(invalidSize);
+        if (!invalid.init(error) || invalid.compose(frame, hud, error))
+            return false;
+    }
+    return true;
+}
+
 bool checkDoubleBuffer() {
     autoaimer::Camera camera;
     autoaimer::VideoComposer video;
@@ -153,6 +180,10 @@ int main() {
     }
     if (!checkSingleCrop()) {
         std::cerr << "Centered one-pass crop/scale did not preserve source coordinates\n";
+        return 1;
+    }
+    if (!checkAdjustedCrop()) {
+        std::cerr << "Adjusted NV12 crop did not align, resize, or reject invalid sizes\n";
         return 1;
     }
     if (!checkDoubleBuffer()) {

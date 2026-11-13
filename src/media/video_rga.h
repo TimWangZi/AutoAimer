@@ -1,5 +1,6 @@
 #pragma once
 #include "media/frame.h"
+#include "media/video_geometry.h"
 #include <rk_mpi_mb.h>
 #include <string>
 
@@ -40,7 +41,7 @@ public:
      * 方法名称：RgaVideo::convert
      * 方法作用：同步裁剪、缩放并转换 NV12，刷新缓存后返回 RGB888 地址；失败返回空指针。
      */
-    const std::uint8_t* convert(const FrameView& frame, std::string& error);
+    const std::uint8_t* convert(const FrameView& frame, SquareCrop crop, std::string& error);
 
 private:
     MB_BLK rgb = nullptr;

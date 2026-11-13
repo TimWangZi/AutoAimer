@@ -1,6 +1,6 @@
 #pragma once
 #include "media/camera.h"
-#include "media/video.h"
+#include "media/display.h"
 #include "ui/menu.h"
 
 namespace autoaimer {
@@ -8,6 +8,7 @@ struct Options {
     unsigned frames = 0; // 合成帧数上限；0 表示持续运行，丢帧不影响这个计数。
     std::string ppm;     // 非空时，在退出前保存最后合成帧。
     std::string iqDir = "/etc/iqfiles";
+    int cropSize = 0; // 输入帧的居中裁剪边长，0 表示最大正方形。
 };
 
 /**
@@ -30,9 +31,7 @@ public:
     int run(const Options& options, bool (*running)());
 
 private:
-    // 成员按声明顺序的逆序销毁：先释放 RGA，再由 Camera 关闭 RKMPI。
     Camera camera;
-    VideoComposer video;
     Display& display;
     ButtonInput& buttons;
     ImuSensor& imu;

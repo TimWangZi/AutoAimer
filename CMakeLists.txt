@@ -5,7 +5,7 @@ project(AutoAimer LANGUAGES CXX)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 
-# 相机/RGA 与 SPI 屏幕是两个独立开关：当前无摄像头板端版本使用 OFF / ON。
+# 相机/RGA 与 SPI 屏幕是两个独立开关。SC3336 实机版使用 ON / ON。
 option(AUTOAIMER_BOARD "Build for Luckfox Pico RV1103 with RKMPI and RGA" OFF)
 option(AUTOAIMER_SPI_DISPLAY "Output to the seven-pin GC9A01 panel on Linux" OFF)
 
