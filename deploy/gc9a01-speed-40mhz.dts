@@ -1,0 +1,8 @@
+/dts-v1/;
+/plugin/;
+
+// 运行中只更新已启用的 SPI 设备频率，不重新创建启动 DTB 已有的 GPIO pinctrl。
+// 完整板级配置仍使用 gc9a01-pico.dts；此覆盖供已经点亮屏幕的板子通过 ADB 加载。
+&{/spi@ff500000/spidev@0} {
+    spi-max-frequency = <40000000>;
+};

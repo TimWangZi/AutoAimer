@@ -1,0 +1,7 @@
+/build*/
+/cmake-build*/
+/test-results/
+/dist/
+/*.ppm
+__pycache__/
+*.py[cod]

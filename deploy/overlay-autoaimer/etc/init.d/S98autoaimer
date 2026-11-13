@@ -1,0 +1,36 @@
+#!/bin/sh
+# 无摄像头版本：合成帧由 camera_sim 提供，界面不注入假传感器数据。
+APP=/usr/bin/autoaimer
+PID=/var/run/autoaimer.pid
+DTBO=/etc/autoaimer/gc9a01-speed-40mhz.dtbo
+OVERLAY=/sys/kernel/config/device-tree/overlays/autoaimer-display
+case "$1" in
+    start)
+        # 通过内核的动态设备树接口应用已编译配置，无需改写 boot 分区。
+        # 放在应用启动前，也能在重启后恢复 SPI0 的 40 MHz 配置。
+        if [ ! -d /sys/kernel/config/device-tree/overlays ]; then
+            mount -t configfs none /sys/kernel/config || exit 1
+        fi
+        mkdir -p "$OVERLAY" || exit 1
+        if [ "$(cat "$OVERLAY/status")" != 1 ]; then
+            cat "$DTBO" > "$OVERLAY/dtbo" || exit 1
+            echo 1 > "$OVERLAY/status" || exit 1
+            if [ "$(cat "$OVERLAY/status")" != 1 ]; then
+                echo "AutoAimer device-tree overlay did not activate" >&2
+                exit 1
+            fi
+        fi
+        echo "Starting AutoAimer GC9A01 display"
+        # 独立会话保证 ADB 断开后继续运行；保留日志，不用会吞掉输出的 -b。
+        setsid start-stop-daemon -S -m -p "$PID" -x "$APP" -- --spi-hz 40000000 </dev/null >>/tmp/autoaimer.log 2>&1 &
+        ;;
+    stop)
+        start-stop-daemon -K -p "$PID" -x "$APP"
+        ;;
+    restart)
+        "$0" stop
+        sleep 1
+        "$0" start
+        ;;
+    *) echo "Usage: $0 {start|stop|restart}"; exit 2 ;;
+esac
