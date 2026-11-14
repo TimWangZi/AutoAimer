@@ -1,4 +1,6 @@
 #include "ui/menu.h"
+#include "ui/menus/calibration_menu.h"
+#include "ui/menus/parameter_menu.h"
 #include <iostream>
 
 int main() {
@@ -28,9 +30,28 @@ int main() {
         return 1;
     }
     autoaimer::Menu& settings = menus.top();
-    if (!press(autoaimer::Key::Confirm) || &menus.top() == &settings ||
-        !press(autoaimer::Key::Left) || &menus.top() != &settings || !press(autoaimer::Key::Left) ||
-        &menus.top() != &root) {
+    using autoaimer::Key;
+    const double originalSpeed = config.motion.velocity.z;
+    if (!press(Key::Confirm) || !dynamic_cast<autoaimer::ParameterMenu*>(&menus.top()) ||
+        !press(Key::Up) || !press(Key::Left) || &menus.top() != &settings ||
+        config.motion.velocity.z != originalSpeed) {
+        std::cerr << "Left must discard the parameter draft\n";
+        return 1;
+    }
+    if (!press(Key::Down) || !press(Key::Confirm) ||
+        !dynamic_cast<autoaimer::CalibrationMenu*>(&menus.top()) || !press(Key::Left) ||
+        &menus.top() != &settings) {
+        std::cerr << "Down and Confirm must open calibration, and Left must return\n";
+        return 1;
+    }
+    if (!press(Key::Up) || !press(Key::Confirm) ||
+        !dynamic_cast<autoaimer::ParameterMenu*>(&menus.top()) || !press(Key::Up) ||
+        !press(Key::Confirm) || &menus.top() != &settings ||
+        config.motion.velocity.z != originalSpeed + 1) {
+        std::cerr << "Confirm must save the parameter draft and return to settings\n";
+        return 1;
+    }
+    if (!press(Key::Left) || &menus.top() != &root) {
         std::cerr << "Left did not restore the previous menu instance\n";
         return 1;
     }

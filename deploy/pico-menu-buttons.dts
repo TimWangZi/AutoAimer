@@ -1,0 +1,61 @@
+/dts-v1/;
+/plugin/;
+
+// 启动前合入基础 DTB：Rockchip pinctrl 在启动时解析引脚组。
+// 关闭标准 Pico 的占位节点，由 gpio-keys 统一配置这五个输入上拉。
+&{/gpio4pa4} { status = "disabled"; };
+&{/gpio4pa3} { status = "disabled"; };
+&{/gpio4pa2} { status = "disabled"; };
+&{/gpio4pa6} { status = "disabled"; };
+&{/gpio4pb0} { status = "disabled"; };
+
+&pinctrl {
+    autoaimer {
+        autoaimer_button_pins: button-pins {
+            rockchip,pins = <4 4 0 &pcfg_pull_up>, <4 3 0 &pcfg_pull_up>,
+                            <4 2 0 &pcfg_pull_up>, <4 6 0 &pcfg_pull_up>,
+                            <4 8 0 &pcfg_pull_up>;
+        };
+    };
+};
+
+&{/} {
+    autoaimer-buttons {
+        compatible = "gpio-keys";
+        label = "autoaimer-buttons";
+        pinctrl-names = "default";
+        pinctrl-0 = <&autoaimer_button_pins>;
+
+        // gpios 的末项 1 表示 GPIO_ACTIVE_LOW。按下接地，松开由内部上拉恢复。
+        key-up {
+            label = "Up";
+            gpios = <&gpio4 4 1>; // 排针 27 / GPIO4_A4
+            linux,code = <103>;   // KEY_UP
+            debounce-interval = <20>;
+        };
+        key-down {
+            label = "Down";
+            gpios = <&gpio4 3 1>; // 排针 26 / GPIO4_A3
+            linux,code = <108>;   // KEY_DOWN
+            debounce-interval = <20>;
+        };
+        key-left {
+            label = "Left";
+            gpios = <&gpio4 2 1>; // 排针 25 / GPIO4_A2
+            linux,code = <105>;   // KEY_LEFT
+            debounce-interval = <20>;
+        };
+        key-right {
+            label = "Right";
+            gpios = <&gpio4 6 1>; // 排针 24 / GPIO4_A6
+            linux,code = <106>;   // KEY_RIGHT
+            debounce-interval = <20>;
+        };
+        key-confirm {
+            label = "Confirm";
+            gpios = <&gpio4 8 1>; // 排针 22 / GPIO4_B0
+            linux,code = <28>;    // KEY_ENTER
+            debounce-interval = <20>;
+        };
+    };
+};

@@ -21,6 +21,10 @@ case "$1" in
             fi
         fi
         set -- --spi-hz 40000000
+        if [ -d /proc/device-tree/autoaimer-buttons ]; then
+            udevadm settle --timeout=5 || exit 1
+            set -- "$@" --buttons
+        fi
         if [ -f "$CAMERA" ]; then
             sh /etc/autoaimer/load_sc3336.sh || exit 1
             export LD_LIBRARY_PATH="/oem/usr/lib:/oem/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"

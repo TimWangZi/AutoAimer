@@ -36,7 +36,7 @@ if(AUTOAIMER_SPI_DISPLAY)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
         message(FATAL_ERROR "GC9A01 hardware output requires Linux spidev/GPIO")
     endif()
-    target_sources(autoaimer PRIVATE src/media/display_gc9a01.cpp
+    target_sources(autoaimer PRIVATE src/media/display_gc9a01.cpp src/input/button_linux.cpp
         src/io/spi_linux.cpp src/io/gpio_linux.cpp)
     target_compile_definitions(autoaimer PRIVATE AUTOAIMER_SPI_DISPLAY)
 endif()

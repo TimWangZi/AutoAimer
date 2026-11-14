@@ -1,5 +1,6 @@
 #include "app.h"
 #ifdef AUTOAIMER_SPI_DISPLAY
+#include "input/button_linux.h"
 #include "io/gpio_linux.h"
 #include "io/spi_linux.h"
 #include "media/display_gc9a01.h"
@@ -32,19 +33,25 @@ void usage() {
 #endif
     std::cerr << " [--crop-size EVEN_PIXELS]";
 #ifdef AUTOAIMER_SPI_DISPLAY
-    std::cerr << " [--spi-hz 100000..40000000]";
+    std::cerr << " [--spi-hz 100000..40000000] [--buttons]";
 #endif
     std::cerr << '\n';
 }
 
-bool parse(int argc, char** argv, autoaimer::Options& options, std::uint32_t& spiHz) {
+bool parse(int argc, char** argv, autoaimer::Options& options, std::uint32_t& spiHz,
+           bool& enableButtons) {
     (void)spiHz;
+    (void)enableButtons;
 #if !defined(AUTOAIMER_BOARD) && !defined(AUTOAIMER_SPI_DISPLAY)
     options.frames = 60;
 #endif
     for (int i = 1; i < argc; ++i) {
         const std::string_view key = argv[i];
 #ifdef AUTOAIMER_SPI_DISPLAY
+        if (key == "--buttons") {
+            enableButtons = true;
+            continue;
+        }
         if (key == "--spi-hz" && i + 1 < argc) {
             const std::string_view value = argv[++i];
             const auto end = value.data() + value.size();
@@ -94,18 +101,29 @@ int main(int argc, char** argv) {
     }
     autoaimer::Options options;
     std::uint32_t spiHz = 40000000;
-    if (!parse(argc, argv, options, spiHz)) {
+    bool enableButtons = false;
+    if (!parse(argc, argv, options, spiHz, enableButtons)) {
         usage();
         return 2;
     }
     std::signal(SIGINT, stop);
     std::signal(SIGTERM, stop);
+    autoaimer::NullButtonInput nullButtons;
+    autoaimer::ButtonInput* buttons = &nullButtons;
 #ifdef AUTOAIMER_SPI_DISPLAY
     // 硬件先创建、最后销毁；App 退出时会先等待显示线程结束。
     autoaimer::LinuxSpiDevice spi;
     autoaimer::LinuxGpioOutput dc, reset;
     autoaimer::Gc9a01Display display(spi, dc, reset);
     std::string error;
+    autoaimer::LinuxButtonInput gpioButtons;
+    if (enableButtons) {
+        if (!gpioButtons.open(error)) {
+            std::cerr << error << '\n';
+            return 1;
+        }
+        buttons = &gpioButtons;
+    }
     // 标准 Pico：DC 为物理脚 4 / GPIO1_C7，RESET 为脚 5 / GPIO1_C6。
     // gpio1 是 bank 标签，23/22 是 bank 内偏移，不是全局 GPIO 编号。
     if (!spi.open({"/dev/spidev0.0", spiHz}, error) ||
@@ -118,9 +136,8 @@ int main(int argc, char** argv) {
 #else
     autoaimer::NullDisplay display;
 #endif
-    autoaimer::NullButtonInput buttons;
     autoaimer::NullImuSensor imu;
     autoaimer::NullDistanceSensor distance;
-    autoaimer::App app(display, buttons, imu, distance);
+    autoaimer::App app(display, *buttons, imu, distance);
     return app.run(options, running);
 }
