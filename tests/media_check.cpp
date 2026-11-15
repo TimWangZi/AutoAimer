@@ -1,11 +1,23 @@
 #include "media/camera.h"
 #include "media/video.h"
+#include "media/video_geometry.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <sstream>
 
 namespace {
+bool checkLumaCapture() {
+    const std::array<std::uint8_t, 12> padded{1, 2, 3, 99, 4, 5, 6, 99, 7, 8, 9, 99};
+    const autoaimer::FrameView frame{padded.data(), 3, 2, 4, 3};
+    std::ostringstream output(std::ios::binary);
+    const std::string expected = "P5\n3 2\n255\n\x01\x02\x03\x04\x05\x06";
+    if (!autoaimer::writeLumaPgm(output, frame) || output.str() != expected)
+        return false;
+    return !autoaimer::writeLumaPgm(output, {});
+}
+
 bool checkCameraLease() {
     autoaimer::Camera camera;
     std::string error;
@@ -141,6 +153,55 @@ bool checkAdjustedCrop() {
     return true;
 }
 
+bool checkDigitalZoom() {
+    // 28 像素基础裁剪在 1.5x 时只取居中的 18×18 偶数区域，再直接缩放到屏幕。
+    constexpr int width = 40, height = 28, stride = 48;
+    std::array<std::uint8_t, stride * height * 3 / 2> nv12{};
+    std::fill(nv12.begin() + stride * height, nv12.end(), 128);
+    for (int y = 0; y < height; ++y)
+        for (int x = 0; x < width; ++x)
+            nv12[y * stride + x] = static_cast<std::uint8_t>(16 + x * 3 + y * 2);
+
+    const autoaimer::FrameView frame{nv12.data(), width, height, stride, height};
+    autoaimer::HudCanvas hud(240, 240);
+    autoaimer::VideoComposer video;
+    std::string error;
+    if (!video.init(error) || !video.compose(frame, hud, error, 0, 1))
+        return false;
+    if (std::abs(autoaimer::digitalZoomScale(28, 1) - 28.0 / 18.0) > 1e-12 ||
+        std::abs(autoaimer::digitalZoomScale(0, 1) - 1.5) > 1e-12 ||
+        std::abs(autoaimer::digitalZoomCoordinate(120, 40, 28, 240, 1) - 400.0 / 3.0) >
+            1e-12 ||
+        std::abs(autoaimer::digitalZoomCoordinate(120, 28, 28, 240, 1) - 400.0 / 3.0) >
+            1e-12)
+        return false;
+
+    struct Probe {
+        int x, y, sourceX, sourceY;
+    };
+    // 理论起点 (11, 5) 向下对齐为 (10, 4)；输出坐标只映射这一次裁剪缩放。
+    const Probe probes[]{{0, 120, 10, 13},
+                         {120, 120, 19, 13},
+                         {239, 120, 27, 13},
+                         {120, 0, 19, 4},
+                         {120, 239, 19, 21}};
+    for (const auto point : probes) {
+        const int luma = point.sourceX * 3 + point.sourceY * 2;
+        const int gray = (298 * luma + 128) / 256;
+        const auto expected = (gray >> 3) << 11 | (gray >> 2) << 5 | (gray >> 3);
+        if (video.output().pixels[point.y * 240 + point.x] != expected)
+            return false;
+    }
+
+    // 无效档位应该在读取数组前拒绝，不能改写已合成的画布。
+    const auto before = video.output().pixels[120 * 240 + 120];
+    if (video.compose(frame, hud, error, 1,
+                      static_cast<unsigned>(autoaimer::digitalZooms.size())) ||
+        video.output().pixels[120 * 240 + 120] != before)
+        return false;
+    return true;
+}
+
 bool checkDoubleBuffer() {
     autoaimer::Camera camera;
     autoaimer::VideoComposer video;
@@ -170,6 +231,10 @@ bool checkDoubleBuffer() {
 } // namespace
 
 int main() {
+    if (!checkLumaCapture()) {
+        std::cerr << "PGM capture did not preserve visible luma rows\n";
+        return 1;
+    }
     if (!checkCameraLease()) {
         std::cerr << "The camera must release the frame before another acquisition\n";
         return 1;
@@ -184,6 +249,10 @@ int main() {
     }
     if (!checkAdjustedCrop()) {
         std::cerr << "Adjusted NV12 crop did not align, resize, or reject invalid sizes\n";
+        return 1;
+    }
+    if (!checkDigitalZoom()) {
+        std::cerr << "Digital zoom did not use the expected centered one-pass crop\n";
         return 1;
     }
     if (!checkDoubleBuffer()) {

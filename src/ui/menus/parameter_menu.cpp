@@ -17,7 +17,7 @@ MenuAction ParameterMenu::update(Input input, MenuContext context) {
     if (input.key == Key::Down)
         draft = std::max(1, draft - 1);
     if (input.key == Key::Confirm) {
-        context.config.motion.velocity.z = draft;
+        context.config.activePreset().muzzleSpeedMetersPerSecond = draft;
         return {MenuAction::Pop, {}};
     }
     if (input.key == Key::Left)

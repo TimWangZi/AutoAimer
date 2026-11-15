@@ -4,7 +4,7 @@
 namespace autoaimer {
 /**
  * 类名称：SettingsMenu
- * 类作用：显示设置选项，并导航到参数页或标定页。
+ * 类作用：显示设置选项，并导航到弹道预设页或标定页。
  */
 class SettingsMenu final : public Menu {
 public:
@@ -20,6 +20,6 @@ public:
     void render(HudCanvas& hud) const override;
 
 private:
-    int selected = 0; // 0：速度参数；1：镜头标定入口。
+    int selected = 0; // 0：弹道预设；1：镜头标定入口。
 };
 } // namespace autoaimer

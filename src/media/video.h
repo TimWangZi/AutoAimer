@@ -38,10 +38,11 @@ public:
      * 方法名称：VideoComposer::compose
      * 方法作用：将输入图像与透明 UI 合成到指定画布；失败时返回错误。
      * 说明：buffer 只能为 0 或 1，并由 DisplayWorker::acquire 确认当前可写。
+     * 说明：zoomLevel 选择固定放大级别，只改变本次一次缩放使用的居中裁剪区域。
      * 说明：另一个缓冲区可以被发送线程读取；这里不负责跨线程同步。
      */
     bool compose(const FrameView& frame, const HudCanvas& hud, std::string& error,
-                 unsigned buffer = 0);
+                 unsigned buffer = 0, unsigned zoomLevel = 0);
     /**
      * 方法名称：VideoComposer::output
      * 方法作用：返回最近一次成功合成画布的只读视图，不复制像素。

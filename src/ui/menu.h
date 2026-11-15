@@ -1,24 +1,49 @@
 #pragma once
+#include "compute/ballistic_preset.h"
+#include "compute/camera_calibration.h"
 #include "input/input.h"
+#include "media/calibration_capture_status.h"
+#include "media/video_geometry.h"
 #include "sensors/sensor.h"
 #include "ui/hud.h"
 #include <array>
+#include <cstdint>
 #include <memory>
 
 namespace autoaimer {
 struct Config {
-    Motion motion;
-    CameraModel camera;
+    std::array<BallisticPreset, ballisticPresetCount> ballisticPresets{};
+    std::size_t activeBallisticPreset = 0;
+    // 菜单每次提交预设或切换活动项时递增；App 据此只在变更时写持久化文件。
+    std::uint64_t ballisticRevision = 0;
+    std::optional<CameraCalibration> cameraCalibration;
+    unsigned zoomLevel = 0;
+    VideoGeometry video;
+
+    /**
+     * 方法名称：Config::activePreset
+     * 方法作用：返回当前选中的弹道预设，供主界面生成轨迹。
+     */
+    BallisticPreset& activePreset() { return ballisticPresets[activeBallisticPreset]; }
+    const BallisticPreset& activePreset() const {
+        return ballisticPresets[activeBallisticPreset];
+    }
+};
+
+struct CalibrationSamples {
+    unsigned count = 0;
+    SampleCaptureStatus status = SampleCaptureStatus::Idle;
 };
 
 struct MenuContext {
     Config& config;
     const SensorData& sensors;
     TimePoint now;
+    CalibrationSamples calibration{};
 };
 
 class Menu;
-enum class MenuCommand { None, MeasureDistance };
+enum class MenuCommand { None, MeasureDistance, CaptureCalibrationFrame };
 
 struct MenuAction {
     enum Kind { Stay, Push, Pop } kind = Stay;

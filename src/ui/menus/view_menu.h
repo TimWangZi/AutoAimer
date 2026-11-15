@@ -11,7 +11,7 @@ class ViewMenu final : public Menu {
 public:
     /**
      * 方法名称：ViewMenu::update
-     * 方法作用：更新主界面计算状态；确认请求测距，右键进入设置。
+     * 方法作用：更新主界面计算状态；上下键控制放大，确认请求测距，右键进入设置。
      */
     MenuAction update(Input input, MenuContext context) override;
     /**
@@ -21,9 +21,20 @@ public:
     void render(HudCanvas& hud) const override;
 
 private:
+    /**
+     * 方法名称：ViewMenu::trajectoryMatches
+     * 方法作用：判断缓存轨迹是否仍对应当前预设和重力。
+     */
+    bool trajectoryMatches(const BallisticPreset& preset, Vec3 gravity) const;
+
     CameraModel camera;
     Trajectory trajectory;
+    BallisticPreset trajectoryPreset;
+    Vec3 trajectoryGravity{};
+    bool trajectoryReady = false;
     std::optional<Orientation> orientation;
     std::optional<double> distanceMeters;
+    std::size_t activePreset = 0;
+    unsigned zoomLevel = 0;
 };
 } // namespace autoaimer

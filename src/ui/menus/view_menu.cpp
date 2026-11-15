@@ -1,4 +1,6 @@
 #include "ui/menus/view_menu.h"
+#include "compute/camera_calibration.h"
+#include "media/video_geometry.h"
 #include "ui/level_indicator.h"
 #include "ui/menus/settings_menu.h"
 #include <chrono>
@@ -39,14 +41,46 @@ std::optional<Vec3> pointAtDepth(const Trajectory& trajectory, double depth) {
 }
 } // namespace
 
+bool ViewMenu::trajectoryMatches(const BallisticPreset& preset, Vec3 gravity) const {
+    // 预设来自离散步进，可直接比较；重力容许约 0.005 m/s² 的采样抖动，
+    // 避免静止时每帧重复执行 121 点 RK4。
+    constexpr double gravityTolerance = 0.005;
+    return trajectoryReady &&
+           preset.muzzleSpeedMetersPerSecond == trajectoryPreset.muzzleSpeedMetersPerSecond &&
+           preset.horizontalOffsetCentimeters == trajectoryPreset.horizontalOffsetCentimeters &&
+           preset.verticalOffsetCentimeters == trajectoryPreset.verticalOffsetCentimeters &&
+           preset.horizontalAngleDegrees == trajectoryPreset.horizontalAngleDegrees &&
+           preset.verticalAngleDegrees == trajectoryPreset.verticalAngleDegrees &&
+           preset.dragCoefficient == trajectoryPreset.dragCoefficient &&
+           preset.quadraticDrag == trajectoryPreset.quadraticDrag &&
+           std::abs(gravity.x - trajectoryGravity.x) < gravityTolerance &&
+           std::abs(gravity.y - trajectoryGravity.y) < gravityTolerance &&
+           std::abs(gravity.z - trajectoryGravity.z) < gravityTolerance;
+}
+
 MenuAction ViewMenu::update(Input input, MenuContext context) {
-    camera = context.config.camera;
+    if (input.key == Key::Up && context.config.zoomLevel + 1 < digitalZooms.size())
+        ++context.config.zoomLevel;
+    if (input.key == Key::Down && context.config.zoomLevel > 0)
+        --context.config.zoomLevel;
+
+    zoomLevel = context.config.zoomLevel;
+    // 原始镜头标定只参与轨迹投影，相机图像仍由 VideoComposer 直接裁剪缩放。
+    camera = cameraForProjection(context.config.cameraCalibration, context.config.video, zoomLevel,
+                                 outputWidth, outputHeight);
+    activePreset = context.config.activeBallisticPreset;
+    Vec3 gravity{0.0, 9.81, 0.0};
     if (fresh(context.sensors.gravity, context.now)) {
-        auto motion = context.config.motion;
-        motion.gravity = context.sensors.gravity.value;
-        predict(motion, trajectory);
-    } else {
-        trajectory.size = 0;
+        gravity = context.sensors.gravity.value;
+    }
+    const auto& preset = context.config.activePreset();
+    // IMU 尚未接入时仍用水平放置的标准重力绘制归零轨迹。
+    // 只有预设或有效重力发生可见变化时才重新积分，普通视频帧复用缓存。
+    if (!trajectoryMatches(preset, gravity)) {
+        predict(makeMotion(preset, gravity), trajectory);
+        trajectoryPreset = preset;
+        trajectoryGravity = gravity;
+        trajectoryReady = true;
     }
 
     orientation = fresh(context.sensors.orientation, context.now)
@@ -93,8 +127,10 @@ void ViewMenu::render(HudCanvas& hud) const {
 
     drawReticle(hud, viewCenter, 8, 11, 21, white);
     drawLevelIndicator(hud, orientation);
+    hud.text(184, 58, digitalZooms[zoomLevel].label, white);
+    hud.text(184, 70, "P" + std::to_string(activePreset + 1), amber);
     hud.centeredText(210, "OK RANGE", white);
-    hud.centeredText(224, "RIGHT MENU", white);
+    hud.centeredText(224, "UD ZOOM RT MENU", white);
 }
 
 std::unique_ptr<Menu> makeViewMenu() {

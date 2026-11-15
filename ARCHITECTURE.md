@@ -48,12 +48,16 @@ flowchart LR
 |---|---|
 | `src/main.cpp` | 解析启动参数、安装退出信号处理、创建硬件/空接口，启动 `App`。 |
 | `src/app.cpp` | 把每帧的获取、菜单更新、绘制、合成、提交串起来；在绘制后切换菜单。 |
+| `src/menu_controller.cpp` | 轮询按键和传感器，把采样状态交给页面，并分派页面命令。 |
+| `src/config/ballistic_store.cpp` | 严格加载三套弹道预设，并用同目录临时文件和重命名持久化。 |
 | `src/ui/menus/` | 每个页面独立 `.h/.cpp`。`update()` 处理输入与状态，`render()` 绘制 UI。 |
 | `src/ui/menu_stack.cpp` | 管理页面压栈、返回；只有栈顶页面参与本帧处理。 |
 | `src/ui/hud.cpp` | 提供点、线、圆和文字绘制；当前字库仍是内嵌的 5×7 点阵。 |
-| `src/compute/trajectory.cpp` | 轨迹计算、投影和近面裁剪；不操作界面或硬件。 |
+| `src/compute/ballistic_preset.cpp`、`trajectory.cpp` | 将预设转换为运动参数，完成轨迹计算、镜头投影和近面裁剪。 |
+| `src/compute/camera_calibration.cpp` | 加载原始镜头参数，并按当前裁剪和放大窗口生成轨迹投影模型。 |
 | `src/input/`、`src/sensors/` | 按键、IMU、测距接口，以及读数状态和采样时间。 |
 | `src/media/camera_*.cpp` | 两种相机来源：无摄像头时生成 NV12 图像；真实相机使用 SDK VI/ISP。 |
+| `src/media/calibration_capture.cpp` | 管理标定样本会话、原始灰度图保存及采样结果。 |
 | `src/media/video.cpp`、`video_rga.cpp` | 一次居中裁剪/缩放，叠加 UI，写入选定的 RGB565 画布；RGA 路径复用 SDK。 |
 | `src/media/display_worker.cpp` | 用 `std::thread` 发送完整画面，管理双缓冲归属与错误回传。 |
 | `src/media/display_gc9a01.cpp` | 解释面板协议，控制 DC/复位时序，将最终画布打包为 30 个裁剪条带。 |
@@ -82,11 +86,15 @@ SPI 接口保持同步，调用返回后才允许复用发送数据。异步交�
 
 ## 菜单和硬件怎么分开
 
-主界面 `ViewMenu` 根据有效传感器数据更新曲线、落点和水平仪；确认键返回“测一次距离”的动作，由 `App` 调用测距接口。菜单不直接写 GPIO 或访问相机。
+主界面 `ViewMenu` 根据当前预设和有效传感器数据更新曲线、落点和水平仪；轨迹仅在预设或重力变化时重新积分。上下键改变数字放大，投影使用与 NV12 偶数对齐裁剪完全相同的实际几何。确认键返回“测一次距离”的动作，由 `MenuController` 转发给测距接口。
 
-`SettingsMenu` 选择下一页；`ParameterMenu` 先修改本页草稿，确认才写回配置；`CalibrationMenu` 当前只是入口和占位提示，尚未实现标定求解。
+`SettingsMenu` 进入弹道或标定页。`BallisticMenu` 选择 P1/P2/P3，`BallisticParameterMenu` 编辑草稿并在确认时提交；`App` 观察修订号，只在提交后写持久化文件。
 
-正式程序目前创建 `NullButtonInput`、`NullImuSensor` 和 `NullDistanceSensor`，明确表示硬件尚未接入。假按键和假传感器数据放在 `tests/`；无摄像头图像由独立的 `camera_sim.cpp` 提供。
+`CalibrationMenu` 读取配置加载状态并发出采样请求。`MenuController` 将采样请求和当前借用帧交给 `CalibrationCapture`。后者通过相机接口保存完整 NV12 亮度平面为 PGM，并记录成功张数和状态。主机工具负责用 OpenCV 求解标定参数。
+
+启动流程只读取并保存原始镜头标定参数。`ViewMenu` 更新轨迹投影时，计算模块根据实际输入尺寸、当前裁剪和放大档位生成 `CameraModel`。标定参数不会进入图像裁剪、RGA 转换或 UI 合成路径。
+
+SPI 实机版启用 `--buttons` 后使用 Linux `gpio-keys` 输入；IMU 和测距驱动尚未接入时仍使用空接口。假按键和假传感器数据只放在 `tests/`；无摄像头图像由独立的 `camera_sim.cpp` 提供。
 
 ## 构建与阅读顺序
 

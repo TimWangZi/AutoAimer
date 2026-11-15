@@ -5,9 +5,10 @@
 #include "test_devices.h"
 #include "recording_io.h"
 #include "ui/menu.h"
-#include "ui/menus/settings_menu.h"
-#include "ui/menus/parameter_menu.h"
+#include "ui/menus/ballistic_menu.h"
+#include "ui/menus/ballistic_parameter_menu.h"
 #include "ui/menus/calibration_menu.h"
+#include "ui/menus/settings_menu.h"
 #include <iostream>
 
 namespace {
@@ -108,10 +109,15 @@ int main(int argc, char** argv) {
     const std::string path = argv[1];
     const auto prefix = path.substr(0, path.find_last_of('.'));
     autoaimer::SettingsMenu settings;
-    autoaimer::ParameterMenu parameters(20);
+    autoaimer::BallisticMenu ballistics(config.activeBallisticPreset);
+    autoaimer::BallisticParameterMenu ballisticParameters(config.activeBallisticPreset,
+                                                           config.activePreset());
     autoaimer::CalibrationMenu calibration;
     const std::pair<const char*, const autoaimer::Menu*> pages[]{
-        {"settings", &settings}, {"parameters", &parameters}, {"calibration", &calibration}};
+        {"settings", &settings},
+        {"ballistics", &ballistics},
+        {"ballistic-parameters", &ballisticParameters},
+        {"calibration", &calibration}};
     for (const auto& item : pages) {
         hud.clear();
         item.second->render(hud);

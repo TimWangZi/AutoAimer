@@ -8,6 +8,9 @@ struct Options {
     unsigned frames = 0; // 合成帧数上限；0 表示持续运行，丢帧不影响这个计数。
     std::string ppm;     // 非空时，在退出前保存最后合成帧。
     std::string iqDir = "/etc/iqfiles";
+    std::string calibrationDirectory = "calibration-samples";
+    std::string cameraCalibrationFile;
+    std::string ballisticPresetFile;
     int cropSize = 0; // 输入帧的居中裁剪边长，0 表示最大正方形。
 };
 

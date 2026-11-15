@@ -169,4 +169,23 @@ FrameLease Camera::acquire(int timeoutMs) {
                          frame.u64PTS};
     return FrameLease(view, state.get(), [](void* p) { static_cast<State*>(p)->release(); });
 }
+bool Camera::saveLuma(std::ostream& output, FrameView frame, std::string& error) {
+    if (!state || !state->leased) {
+        error = "No borrowed camera frame to save";
+        return false;
+    }
+    const auto block = state->raw.stVFrame.pMbBlk;
+    // 正常显示路径只传 DMA-BUF；按键采样时才映射并同步 CPU 缓存。
+    frame.data = static_cast<const std::uint8_t*>(RK_MPI_MB_Handle2VirAddr(block));
+    if (!frame.data) {
+        error = "Could not map the camera frame for PGM capture";
+        return false;
+    }
+    if (!check(RK_MPI_SYS_MmzFlushCache(block, RK_TRUE), "Camera sample cache sync", error))
+        return false;
+    if (writeLumaPgm(output, frame))
+        return true;
+    error = "Could not write the PGM sample";
+    return false;
+}
 } // namespace autoaimer

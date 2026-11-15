@@ -23,10 +23,9 @@ struct Motion {
 };
 
 struct CameraModel {
-    // 内参以最终显示坐标为单位：原 320x240 中心裁成 240x240 后，
-    // 焦距不变，主点从 (160,120) 平移至 (120,120)。
+    // fx/fy/cx/cy 使用当前投影坐标系的像素单位；畸变系数作用于归一化坐标。
     double fx = 200, fy = 200, cx = 120, cy = 120;
-    double k1 = 0, k2 = 0, p1 = 0, p2 = 0;
+    double k1 = 0, k2 = 0, p1 = 0, p2 = 0, k3 = 0;
 };
 
 struct Trajectory {

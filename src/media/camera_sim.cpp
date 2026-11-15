@@ -42,4 +42,10 @@ FrameLease Camera::acquire(int) {
     return FrameLease({y, width, height, stride, height, -1, state->frame * 33333}, state.get(),
                       [](void* p) { static_cast<State*>(p)->leased = false; });
 }
+bool Camera::saveLuma(std::ostream& output, FrameView frame, std::string& error) {
+    if (writeLumaPgm(output, frame))
+        return true;
+    error = "Could not write the PGM sample";
+    return false;
+}
 } // namespace autoaimer

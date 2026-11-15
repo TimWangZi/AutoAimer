@@ -1,6 +1,6 @@
 #include "ui/menus/settings_menu.h"
+#include "ui/menus/ballistic_menu.h"
 #include "ui/menus/calibration_menu.h"
-#include "ui/menus/parameter_menu.h"
 
 namespace autoaimer {
 namespace {
@@ -16,7 +16,7 @@ MenuAction SettingsMenu::update(Input input, MenuContext context) {
     if (input.key == Key::Confirm) {
         if (selected == 0)
             return {MenuAction::Push,
-                    std::make_unique<ParameterMenu>(context.config.motion.velocity.z)};
+                    std::make_unique<BallisticMenu>(context.config.activeBallisticPreset)};
         return {MenuAction::Push, std::make_unique<CalibrationMenu>()};
     }
     return {};
@@ -24,7 +24,7 @@ MenuAction SettingsMenu::update(Input input, MenuContext context) {
 
 void SettingsMenu::render(HudCanvas& hud) const {
     hud.centeredText(32, "SETTINGS", white, 2);
-    hud.centeredText(88, "SIMULATION SPEED", selected == 0 ? green : white);
+    hud.centeredText(88, "BALLISTIC PRESETS", selected == 0 ? green : white);
     hud.centeredText(112, "LENS CALIBRATION", selected == 1 ? green : white);
     hud.centeredText(186, "UP DOWN SELECT", white);
     hud.centeredText(206, "OK OPEN", white);

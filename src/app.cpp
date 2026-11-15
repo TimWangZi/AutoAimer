@@ -1,12 +1,41 @@
 #include "app.h"
+#include "config/ballistic_store.h"
+#include "compute/camera_calibration.h"
 #include "media/display_worker.h"
 #include "media/video.h"
-#include <algorithm>
+#include "menu_controller.h"
 #include <iostream>
 
 namespace autoaimer {
+namespace {
+// 启动配置文件统一在开启相机和显示线程前读取。
+bool loadStartupConfig(const Options& options, Config& config, std::string& error) {
+    const auto presetStatus = loadBallisticPresets(
+        options.ballisticPresetFile, config.ballisticPresets, config.activeBallisticPreset, error);
+    if (presetStatus == BallisticLoadStatus::Error)
+        return false;
+    if (presetStatus == BallisticLoadStatus::Loaded)
+        std::cerr << "Ballistic presets loaded, active P" << config.activeBallisticPreset + 1
+                  << '\n';
+    CameraCalibration calibration;
+    const auto calibrationStatus =
+        loadCameraCalibration(options.cameraCalibrationFile, calibration, error);
+    if (calibrationStatus == CalibrationLoadStatus::Error)
+        return false;
+    if (calibrationStatus == CalibrationLoadStatus::Loaded) {
+        config.cameraCalibration = calibration;
+        std::cerr << "Camera calibration loaded, RMS " << calibration.rmsPixels << " px\n";
+    }
+    return true;
+}
+} // namespace
+
 int App::run(const Options& options, bool (*running)()) {
     std::string error;
+    if (!loadStartupConfig(options, config, error)) {
+        std::cerr << error << '\n';
+        return 1;
+    }
     // 合成器先于 Camera 销毁，RGA 缓冲必须在关闭 RKMPI 前释放。
     VideoComposer video(options.cropSize);
     if (!camera.init(options.iqDir, error) || !video.init(error)) {
@@ -20,16 +49,25 @@ int App::run(const Options& options, bool (*running)()) {
         return 1;
     }
     unsigned frames = 0, consecutiveTimeouts = 0;
+    MenuController menuController(buttons, imu, distance, camera, options.calibrationDirectory);
+    std::uint64_t savedBallisticRevision = config.ballisticRevision;
     while (running() && (options.frames == 0 || frames < options.frames)) {
         // 1. 取得本轮图像、按键和传感器快照，交给当前菜单更新状态。
         // 相机租约覆盖同步合成；发送线程只借用独立的 RGB565 成品画布。
         auto frame = camera.acquire(150);
+        if (frame.state() == FrameStatus::Ready)
+            config.video = makeVideoGeometry(frame.view().width, frame.view().height,
+                                             options.cropSize);
         const auto now = Clock::now();
-        const Input input = buttons.poll();
-        const SensorData sensors = pollSensorData(imu, distance, now);
-        auto action = menus.top().update(input, {config, sensors, now});
-        if (action.command == MenuCommand::MeasureDistance)
-            distance.measure(now);
+        auto action = menuController.update(menus.top(), config, now);
+        if (config.ballisticRevision != savedBallisticRevision) {
+            if (!options.ballisticPresetFile.empty() &&
+                !saveBallisticPresets(options.ballisticPresetFile, config.ballisticPresets,
+                                      config.activeBallisticPreset, error))
+                std::cerr << error << '\n';
+            savedBallisticRevision = config.ballisticRevision;
+        }
+        menuController.dispatch(action, frame, now);
 
         switch (frame.state()) {
             case FrameStatus::Ready: {
@@ -42,7 +80,8 @@ int App::run(const Options& options, bool (*running)()) {
                     std::cerr << error << '\n';
                     return 1;
                 }
-                if (!video.compose(frame.view(), hud, error, static_cast<unsigned>(buffer))) {
+                if (!video.compose(frame.view(), hud, error, static_cast<unsigned>(buffer),
+                                   config.zoomLevel)) {
                     std::cerr << error << '\n';
                     return 1;
                 }
@@ -54,10 +93,9 @@ int App::run(const Options& options, bool (*running)()) {
 #ifdef AUTOAIMER_BOARD
                 if (frames == 0) {
                     const auto& source = frame.view();
-                    const int crop = options.cropSize == 0 ? std::min(source.width, source.height)
-                                                           : options.cropSize;
                     std::cerr << "Camera NV12 " << source.width << 'x' << source.height << ", crop "
-                              << crop << " -> " << outputWidth << 'x' << outputHeight << '\n';
+                              << config.video.baseCropSize << " -> " << outputWidth << 'x'
+                              << outputHeight << '\n';
                 }
 #endif
                 ++frames;

@@ -41,6 +41,11 @@ public:
      * 方法作用：借用下一帧并返回归还凭证；用状态区分成功、超时和错误。
      */
     FrameLease acquire(int timeoutMs);
+    /**
+     * 方法名称：Camera::saveLuma
+     * 方法作用：将当前借出帧的完整亮度平面写为 PGM。
+     */
+    bool saveLuma(std::ostream& output, FrameView frame, std::string& error);
 
 private:
     struct State;

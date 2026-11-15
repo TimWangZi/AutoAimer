@@ -32,6 +32,9 @@ void usage() {
     std::cerr << " [--iq-dir PATH]";
 #endif
     std::cerr << " [--crop-size EVEN_PIXELS]";
+    std::cerr << " [--calibration-dir PATH]";
+    std::cerr << " [--camera-calibration PATH]";
+    std::cerr << " [--ballistic-presets PATH]";
 #ifdef AUTOAIMER_SPI_DISPLAY
     std::cerr << " [--spi-hz 100000..40000000] [--buttons]";
 #endif
@@ -68,6 +71,18 @@ bool parse(int argc, char** argv, autoaimer::Options& options, std::uint32_t& sp
             continue;
         }
 #endif
+        if (key == "--calibration-dir" && i + 1 < argc) {
+            options.calibrationDirectory = argv[++i];
+            continue;
+        }
+        if (key == "--camera-calibration" && i + 1 < argc) {
+            options.cameraCalibrationFile = argv[++i];
+            continue;
+        }
+        if (key == "--ballistic-presets" && i + 1 < argc) {
+            options.ballisticPresetFile = argv[++i];
+            continue;
+        }
         if (key == "--crop-size" && i + 1 < argc) {
             const std::string_view value = argv[++i];
             const auto end = value.data() + value.size();
@@ -100,6 +115,11 @@ int main(int argc, char** argv) {
         return 0;
     }
     autoaimer::Options options;
+#ifdef AUTOAIMER_BOARD
+    options.calibrationDirectory = "/userdata/calibration-samples";
+    options.cameraCalibrationFile = "/userdata/autoaimer/camera-calibration.conf";
+    options.ballisticPresetFile = "/userdata/autoaimer/ballistic-presets.conf";
+#endif
     std::uint32_t spiHz = 40000000;
     bool enableButtons = false;
     if (!parse(argc, argv, options, spiHz, enableButtons)) {

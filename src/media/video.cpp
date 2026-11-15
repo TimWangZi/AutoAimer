@@ -57,16 +57,25 @@ bool VideoComposer::init(std::string& error) {
 }
 
 bool VideoComposer::compose(const FrameView& frame, const HudCanvas& hud, std::string& error,
-                            unsigned buffer) {
+                            unsigned buffer, unsigned zoomLevel) {
     if (frame.width <= 0 || frame.height <= 0 || frame.width % 2 || frame.height % 2 ||
         frame.yStride < frame.width || frame.storageHeight < frame.height) {
         error = "Unsupported NV12 dimensions or stride";
         return false;
     }
     const int maxSize = std::min(frame.width, frame.height);
-    const int size = cropSize == 0 ? maxSize : cropSize;
-    if (size <= 0 || size % 2 || size > maxSize) {
+    const int baseSize = cropSize == 0 ? maxSize : cropSize;
+    if (baseSize <= 0 || baseSize % 2 || baseSize > maxSize) {
         error = "Crop size must be positive, even, and at most " + std::to_string(maxSize);
+        return false;
+    }
+    if (zoomLevel >= digitalZooms.size()) {
+        error = "Unsupported digital zoom level";
+        return false;
+    }
+    const int size = zoomedCropSize(baseSize, zoomLevel);
+    if (size < 2) {
+        error = "Digital zoom leaves fewer than two source pixels";
         return false;
     }
     const auto crop = centeredSquare(frame.width, frame.height, size);

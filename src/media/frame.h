@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <iosfwd>
 #include <utility>
 
 namespace autoaimer {
@@ -10,6 +11,12 @@ struct FrameView {
     int dmaFd = -1;
     std::uint64_t timestampUs{};
 };
+
+/**
+ * 方法名称：writeLumaPgm
+ * 方法作用：将可由 CPU 读取的 NV12 亮度平面写成 PGM，跳过每行填充。
+ */
+bool writeLumaPgm(std::ostream& output, const FrameView& frame);
 
 enum class FrameStatus { Ready, Timeout, Error };
 

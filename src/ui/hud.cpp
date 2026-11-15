@@ -117,6 +117,14 @@ void HudCanvas::text(int x, int y, std::string_view text, Rgba color, int scale)
                         for (int sy = 0; sy < scale; ++sy)
                             for (int sx = 0; sx < scale; ++sx)
                                 point(x + col * scale + sx, y + row * scale + sy, color);
+        } else if (c == '.') {
+            for (int sy = 0; sy < scale; ++sy)
+                for (int sx = 0; sx < scale; ++sx)
+                    point(x + 2 * scale + sx, y + 6 * scale + sy, color);
+        } else if (c == '-') {
+            for (int sx = 0; sx < 5 * scale; ++sx)
+                for (int sy = 0; sy < scale; ++sy)
+                    point(x + sx, y + 3 * scale + sy, color);
         }
         x += 6 * scale;
     }

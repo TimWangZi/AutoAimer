@@ -1,3 +1,4 @@
+#include "compute/ballistic_preset.h"
 #include "compute/trajectory.h"
 #include <cmath>
 #include <cstdlib>
@@ -13,6 +14,37 @@ void near(double actual, double expected, double tolerance, const char* name) {
 } // namespace
 
 int main() {
+    autoaimer::BallisticPreset preset;
+    preset.muzzleSpeedMetersPerSecond = 30.0;
+    preset.horizontalOffsetCentimeters = -3.0;
+    preset.verticalOffsetCentimeters = 5.0;
+    preset.horizontalAngleDegrees = 20.0;
+    preset.verticalAngleDegrees = 10.0;
+    preset.dragCoefficient = 0.2;
+    preset.quadraticDrag = false;
+    const auto fromPreset = autoaimer::makeMotion(preset, {1.0, 2.0, 3.0});
+    constexpr double pitch = 10.0 * 3.14159265358979323846 / 180.0;
+    constexpr double yaw = 20.0 * 3.14159265358979323846 / 180.0;
+    near(fromPreset.origin.x, -0.03, 1e-12, "preset horizontal offset");
+    near(fromPreset.origin.y, 0.05, 1e-12, "preset vertical offset");
+    near(fromPreset.velocity.x, 30.0 * std::cos(pitch) * std::sin(yaw), 1e-12,
+         "preset horizontal angle x");
+    near(fromPreset.velocity.y, -30.0 * std::sin(pitch), 1e-12,
+         "preset vertical angle y");
+    near(fromPreset.velocity.z, 30.0 * std::cos(pitch) * std::cos(yaw), 1e-12,
+         "preset angles z");
+    near(fromPreset.drag, 0.2, 0, "preset drag");
+    if (fromPreset.model != autoaimer::DragModel::Linear || fromPreset.gravity.x != 1.0 ||
+        fromPreset.gravity.y != 2.0 || fromPreset.gravity.z != 3.0) {
+        std::cerr << "Preset did not select linear drag or preserve gravity\n";
+        return 1;
+    }
+    preset.quadraticDrag = true;
+    if (autoaimer::makeMotion(preset).model != autoaimer::DragModel::Quadratic) {
+        std::cerr << "Preset did not select quadratic drag\n";
+        return 1;
+    }
+
     autoaimer::Trajectory result, refined;
     autoaimer::Motion motion;
     const double t = 1.2;
@@ -58,5 +90,11 @@ int main() {
     if (!warped)
         return 1;
     near(warped->x, 222.5, 1e-12, "radial distortion");
-    std::cout << "Analytic baselines, RK4 convergence, clipping and distortion passed\n";
+    lens = {};
+    lens.k3 = 0.1;
+    const auto warpedK3 = autoaimer::project(lens, {0.5, 0, 1});
+    if (!warpedK3)
+        return 1;
+    near(warpedK3->x, 220.15625, 1e-12, "third radial distortion coefficient");
+    std::cout << "Preset conversion, analytic baselines, RK4 convergence, clipping and distortion passed\n";
 }

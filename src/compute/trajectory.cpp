@@ -87,7 +87,7 @@ std::optional<Pixel> project(const CameraModel& c, Vec3 p) {
         return std::nullopt;
     const double x = p.x / p.z, y = p.y / p.z;
     const double r2 = x * x + y * y;
-    const double radial = 1 + r2 * (c.k1 + r2 * c.k2);
+    const double radial = 1 + r2 * (c.k1 + r2 * (c.k2 + r2 * c.k3));
     // 将理想归一化坐标映射到带畸变的图像坐标，与相机画面保持一致。
     const Pixel uv{c.cx + c.fx * (x * radial + 2 * c.p1 * x * y + c.p2 * (r2 + 2 * x * x)),
                    c.cy + c.fy * (y * radial + c.p1 * (r2 + 2 * y * y) + 2 * c.p2 * x * y)};

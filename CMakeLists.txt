@@ -15,17 +15,29 @@ set(autoaimer_menu_sources
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/menu_stack.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/menus/view_menu.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/menus/settings_menu.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/menus/ballistic_menu.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/menus/ballistic_parameter_menu.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/menus/parameter_menu.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/menus/calibration_menu.cpp")
 add_executable(autoaimer
     src/main.cpp
     src/app.cpp
+    src/menu_controller.cpp
+    src/config/ballistic_store.cpp
+    src/compute/ballistic_preset.cpp
+    src/compute/camera_calibration.cpp
     src/compute/trajectory.cpp
+    src/media/calibration_capture.cpp
+    src/media/frame.cpp
     src/media/video.cpp
     src/media/display_worker.cpp
     src/ui/hud.cpp
     ${autoaimer_menu_sources})
 target_link_libraries(autoaimer PRIVATE Threads::Threads)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+    # Luckfox 的 GCC 8 将 C++17 filesystem 实现放在单独的库中。
+    target_link_libraries(autoaimer PRIVATE stdc++fs)
+endif()
 target_compile_features(autoaimer PRIVATE cxx_std_17)
 set_target_properties(autoaimer PROPERTIES CXX_EXTENSIONS OFF)
 target_include_directories(autoaimer PRIVATE src)
