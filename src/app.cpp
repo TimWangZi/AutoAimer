@@ -3,7 +3,7 @@
 #include "compute/camera_calibration.h"
 #include "media/display_worker.h"
 #include "media/video.h"
-#include "menu_controller.h"
+#include "ui/menus/menu_controller.h"
 #include <iostream>
 
 namespace autoaimer {

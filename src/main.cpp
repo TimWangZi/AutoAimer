@@ -5,6 +5,10 @@
 #include "io/spi_linux.h"
 #include "media/display_gc9a01.h"
 #endif
+#ifdef AUTOAIMER_SENSOR_HARDWARE
+#include "sensors/icm42688_linux.h"
+#include "sensors/sdm20_linux.h"
+#endif
 #include <atomic>
 #include <charconv>
 #include <csignal>
@@ -38,18 +42,28 @@ void usage() {
 #ifdef AUTOAIMER_SPI_DISPLAY
     std::cerr << " [--spi-hz 100000..40000000] [--buttons]";
 #endif
+#ifdef AUTOAIMER_SENSOR_HARDWARE
+    std::cerr << " [--sensors]";
+#endif
     std::cerr << '\n';
 }
 
 bool parse(int argc, char** argv, autoaimer::Options& options, std::uint32_t& spiHz,
-           bool& enableButtons) {
+           bool& enableButtons, bool& enableSensors) {
     (void)spiHz;
     (void)enableButtons;
+    (void)enableSensors;
 #if !defined(AUTOAIMER_BOARD) && !defined(AUTOAIMER_SPI_DISPLAY)
     options.frames = 60;
 #endif
     for (int i = 1; i < argc; ++i) {
         const std::string_view key = argv[i];
+#ifdef AUTOAIMER_SENSOR_HARDWARE
+        if (key == "--sensors") {
+            enableSensors = true;
+            continue;
+        }
+#endif
 #ifdef AUTOAIMER_SPI_DISPLAY
         if (key == "--buttons") {
             enableButtons = true;
@@ -122,7 +136,8 @@ int main(int argc, char** argv) {
 #endif
     std::uint32_t spiHz = 40000000;
     bool enableButtons = false;
-    if (!parse(argc, argv, options, spiHz, enableButtons)) {
+    bool enableSensors = false;
+    if (!parse(argc, argv, options, spiHz, enableButtons, enableSensors)) {
         usage();
         return 2;
     }
@@ -156,8 +171,30 @@ int main(int argc, char** argv) {
 #else
     autoaimer::NullDisplay display;
 #endif
-    autoaimer::NullImuSensor imu;
-    autoaimer::NullDistanceSensor distance;
-    autoaimer::App app(display, *buttons, imu, distance);
+    autoaimer::NullImuSensor nullImu;
+    autoaimer::NullDistanceSensor nullDistance;
+    autoaimer::ImuSensor* imu = &nullImu;
+    autoaimer::DistanceSensor* distance = &nullDistance;
+#ifdef AUTOAIMER_SENSOR_HARDWARE
+    autoaimer::LinuxIcm426xxSensor boardImu;
+    autoaimer::LinuxSdm20DistanceSensor boardDistance;
+    if (enableSensors) {
+        std::string sensorError;
+        if (boardImu.open("/dev/i2c-3", sensorError)) {
+            imu = &boardImu;
+            std::cerr << boardImu.modelName() << " on I2C3\n";
+        } else {
+            std::cerr << "ICM-426xx unavailable: " << sensorError << '\n';
+        }
+        sensorError.clear();
+        if (boardDistance.open("/dev/ttyS3", sensorError)) {
+            distance = &boardDistance;
+            std::cerr << "SDM20 on UART3 at 460800 baud\n";
+        } else {
+            std::cerr << "SDM20 unavailable: " << sensorError << '\n';
+        }
+    }
+#endif
+    autoaimer::App app(display, *buttons, *imu, *distance);
     return app.run(options, running);
 }

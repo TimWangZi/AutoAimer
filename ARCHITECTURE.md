@@ -48,14 +48,14 @@ flowchart LR
 |---|---|
 | `src/main.cpp` | 解析启动参数、安装退出信号处理、创建硬件/空接口，启动 `App`。 |
 | `src/app.cpp` | 把每帧的获取、菜单更新、绘制、合成、提交串起来；在绘制后切换菜单。 |
-| `src/menu_controller.cpp` | 轮询按键和传感器，把采样状态交给页面，并分派页面命令。 |
+| `src/ui/menus/menu_controller.cpp` | 轮询按键和传感器，把采样状态交给页面，并分派页面命令。 |
 | `src/config/ballistic_store.cpp` | 严格加载三套弹道预设，并用同目录临时文件和重命名持久化。 |
 | `src/ui/menus/` | 每个页面独立 `.h/.cpp`。`update()` 处理输入与状态，`render()` 绘制 UI。 |
 | `src/ui/menu_stack.cpp` | 管理页面压栈、返回；只有栈顶页面参与本帧处理。 |
 | `src/ui/hud.cpp` | 提供点、线、圆和文字绘制；当前字库仍是内嵌的 5×7 点阵。 |
 | `src/compute/ballistic_preset.cpp`、`trajectory.cpp` | 将预设转换为运动参数，完成轨迹计算、镜头投影和近面裁剪。 |
 | `src/compute/camera_calibration.cpp` | 加载原始镜头参数，并按当前裁剪和放大窗口生成轨迹投影模型。 |
-| `src/input/`、`src/sensors/` | 按键、IMU、测距接口，以及读数状态和采样时间。 |
+| `src/input/`、`src/sensors/` | 按键与传感器接口；ICM-426xx 融合重力/倾角，SDM20 解析单次测距。 |
 | `src/media/camera_*.cpp` | 两种相机来源：无摄像头时生成 NV12 图像；真实相机使用 SDK VI/ISP。 |
 | `src/media/calibration_capture.cpp` | 管理标定样本会话、原始灰度图保存及采样结果。 |
 | `src/media/video.cpp`、`video_rga.cpp` | 一次居中裁剪/缩放，叠加 UI，写入选定的 RGB565 画布；RGA 路径复用 SDK。 |
@@ -94,17 +94,18 @@ SPI 接口保持同步，调用返回后才允许复用发送数据。异步交�
 
 启动流程只读取并保存原始镜头标定参数。`ViewMenu` 更新轨迹投影时，计算模块根据实际输入尺寸、当前裁剪和放大档位生成 `CameraModel`。标定参数不会进入图像裁剪、RGA 转换或 UI 合成路径。
 
-SPI 实机版启用 `--buttons` 后使用 Linux `gpio-keys` 输入；IMU 和测距驱动尚未接入时仍使用空接口。假按键和假传感器数据只放在 `tests/`；无摄像头图像由独立的 `camera_sim.cpp` 提供。
+SPI 实机版启用 `--buttons` 后使用 Linux `gpio-keys` 输入。启用 `--sensors` 后，`LinuxIcm426xxSensor` 从 I2C3 更新重力和姿态，`LinuxSdm20DistanceSensor` 从 UART3 取得确认键之后的下一帧距离；未启用时使用空接口。假按键和假传感器数据只放在 `tests/`；无摄像头图像由独立的 `camera_sim.cpp` 提供。
 
 ## 构建与阅读顺序
 
-`CMakeLists.txt` 有两个独立开关：
+`CMakeLists.txt` 有三个独立开关：
 
 | 开关 | ON | OFF |
 |---|---|---|
 | `AUTOAIMER_BOARD` | SDK 真实相机与 RGA | 合成 NV12 图像与 CPU 合成 |
 | `AUTOAIMER_SPI_DISPLAY` | GC9A01 SPI 屏幕 | 空显示接口，可导出 PPM |
+| `AUTOAIMER_SENSOR_HARDWARE` | Linux I2C/UART 实体传感器 | 空传感器接口 |
 
-SC3336 实机版使用 **ON / ON**，无摄像头固件使用 **OFF / ON**，主机验证通常使用 **OFF / OFF**。CMake 根据这两个开关挑选实现文件，主循环使用相同的接口。
+SC3336 实机版三个开关都使用 **ON**；无摄像头固件可按需要单独启用显示和传感器；主机验证通常全部为 **OFF**。CMake 按开关挑选实现文件，主循环使用相同的接口。
 
 建议顺序：`main.cpp` → `app.cpp` → `ui/menus/view_menu.cpp` → `media/video.cpp` → `media/display_worker.cpp`。需要接硬件时再进入具体驱动。目录和类名保持原样，后续排版统一使用项目内的 `.clang-format`。

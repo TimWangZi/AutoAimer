@@ -1,6 +1,6 @@
 #include "media/camera.h"
-#include "menu_controller.h"
 #include "test_devices.h"
+#include "ui/menus/menu_controller.h"
 
 #include <chrono>
 #include <iostream>

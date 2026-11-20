@@ -14,12 +14,14 @@ add_executable(menu_check menu_check.cpp
     "${source_dir}/ui/hud.cpp" "${source_dir}/compute/ballistic_preset.cpp"
     "${source_dir}/compute/camera_calibration.cpp" "${source_dir}/compute/trajectory.cpp")
 add_executable(menu_controller_check menu_controller_check.cpp
-    "${source_dir}/menu_controller.cpp" "${source_dir}/media/calibration_capture.cpp"
+    "${source_dir}/ui/menus/menu_controller.cpp" "${source_dir}/media/calibration_capture.cpp"
     "${source_dir}/media/camera_sim.cpp" "${source_dir}/media/frame.cpp")
 add_executable(media_check media_check.cpp
     "${source_dir}/media/camera_sim.cpp" "${source_dir}/media/frame.cpp" "${source_dir}/media/video.cpp"
     "${source_dir}/ui/hud.cpp")
 add_executable(device_check device_check.cpp)
+add_executable(sensor_protocol_check sensor_protocol_check.cpp
+    "${source_dir}/sensors/icm42688.cpp" "${source_dir}/sensors/sdm20.cpp")
 add_executable(display_check display_check.cpp "${source_dir}/media/display_gc9a01.cpp")
 add_executable(display_worker_check display_worker_check.cpp "${source_dir}/media/display_worker.cpp")
 target_link_libraries(display_worker_check PRIVATE Threads::Threads)
@@ -33,7 +35,7 @@ add_executable(ui_preview_check ui_preview_check.cpp
 target_link_libraries(ui_preview_check PRIVATE Threads::Threads)
 
 foreach(target IN ITEMS trajectory_check camera_calibration_check calibration_capture_check
-    ballistic_store_check menu_check menu_controller_check media_check device_check ui_preview_check
+    ballistic_store_check menu_check menu_controller_check media_check device_check sensor_protocol_check ui_preview_check
     display_check display_worker_check)
     target_compile_features(${target} PRIVATE cxx_std_17)
     target_include_directories(${target} PRIVATE "${source_dir}" "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -50,6 +52,7 @@ add_test(NAME menu_navigation COMMAND menu_check)
 add_test(NAME menu_controller COMMAND menu_controller_check)
 add_test(NAME media_adapters COMMAND media_check)
 add_test(NAME input_and_sensors COMMAND device_check)
+add_test(NAME sensor_protocols COMMAND sensor_protocol_check)
 add_test(NAME gc9a01_display COMMAND display_check "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/gc9a01-init.txt")
 add_test(NAME display_thread COMMAND display_worker_check)
 set_tests_properties(display_thread PROPERTIES TIMEOUT 15)

@@ -87,6 +87,7 @@ MenuAction ViewMenu::update(Input input, MenuContext context) {
                       ? std::optional<Orientation>(context.sensors.orientation.value)
                       : std::nullopt;
     const auto& distance = context.sensors.distanceMeters;
+    distanceStatus = distance.status;
     distanceMeters = distance.status == SampleStatus::Valid && std::isfinite(distance.value) &&
                              distance.value > 0
                          ? std::optional<double>(distance.value)
@@ -104,6 +105,8 @@ void ViewMenu::render(HudCanvas& hud) const {
     if (distanceMeters) {
         const auto centimeters = std::lround(*distanceMeters * 100);
         hud.centeredText(34, std::to_string(centimeters) + " CM", white, 2);
+    } else if (distanceStatus == SampleStatus::Error) {
+        hud.centeredText(34, "NO TARGET", amber, 2);
     } else {
         hud.centeredText(34, "PRESS OK", amber, 2);
     }

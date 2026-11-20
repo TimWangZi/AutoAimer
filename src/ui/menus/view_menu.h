@@ -34,6 +34,7 @@ private:
     bool trajectoryReady = false;
     std::optional<Orientation> orientation;
     std::optional<double> distanceMeters;
+    SampleStatus distanceStatus = SampleStatus::Unavailable;
     std::size_t activePreset = 0;
     unsigned zoomLevel = 0;
 };

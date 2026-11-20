@@ -8,6 +8,8 @@ find_package(Threads REQUIRED)
 # 相机/RGA 与 SPI 屏幕是两个独立开关。SC3336 实机版使用 ON / ON。
 option(AUTOAIMER_BOARD "Build for Luckfox Pico RV1103 with RKMPI and RGA" OFF)
 option(AUTOAIMER_SPI_DISPLAY "Output to the seven-pin GC9A01 panel on Linux" OFF)
+option(AUTOAIMER_SENSOR_HARDWARE "Read ICM-42605/ICM-42688-P and SDM20 through Linux devices"
+    ${AUTOAIMER_BOARD})
 
 # 各页面独立实现；应用和菜单测试复用同一份源文件列表。
 set(autoaimer_menu_sources
@@ -22,11 +24,13 @@ set(autoaimer_menu_sources
 add_executable(autoaimer
     src/main.cpp
     src/app.cpp
-    src/menu_controller.cpp
+    src/ui/menus/menu_controller.cpp
     src/config/ballistic_store.cpp
     src/compute/ballistic_preset.cpp
     src/compute/camera_calibration.cpp
     src/compute/trajectory.cpp
+    src/sensors/icm42688.cpp
+    src/sensors/sdm20.cpp
     src/media/calibration_capture.cpp
     src/media/frame.cpp
     src/media/video.cpp
@@ -71,4 +75,23 @@ else()
             add_subdirectory(tests)
         endif()
     endif()
+endif()
+
+# 实体传感器与相机后端相互独立；无摄像头板端版本也可以单独启用。
+if(AUTOAIMER_SENSOR_HARDWARE)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        message(FATAL_ERROR "ICM-426xx/SDM20 hardware input requires Linux I2C/UART")
+    endif()
+    target_sources(autoaimer PRIVATE src/sensors/icm42688_linux.cpp src/sensors/sdm20_linux.cpp)
+    target_compile_definitions(autoaimer PRIVATE AUTOAIMER_SENSOR_HARDWARE)
+
+    # 板端诊断工具复用正式驱动，只打印真实传感器读数，不进入视频和显示流程。
+    add_executable(autoaimer_sensor_probe tools/sensor_probe.cpp
+        src/sensors/icm42688.cpp src/sensors/icm42688_linux.cpp
+        src/sensors/sdm20.cpp src/sensors/sdm20_linux.cpp)
+    target_link_libraries(autoaimer_sensor_probe PRIVATE Threads::Threads)
+    target_compile_features(autoaimer_sensor_probe PRIVATE cxx_std_17)
+    set_target_properties(autoaimer_sensor_probe PROPERTIES CXX_EXTENSIONS OFF)
+    target_include_directories(autoaimer_sensor_probe PRIVATE src)
+    target_compile_options(autoaimer_sensor_probe PRIVATE -Wall -Wextra -Wpedantic)
 endif()

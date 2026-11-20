@@ -1,9 +1,12 @@
 #!/bin/sh
 APP=/usr/bin/autoaimer
 CAMERA=/etc/autoaimer/sc3336-enabled
+SENSORS=/etc/autoaimer/sensors-enabled
 PID=/var/run/autoaimer.pid
 DTBO=/etc/autoaimer/gc9a01-speed-40mhz.dtbo
 OVERLAY=/sys/kernel/config/device-tree/overlays/autoaimer-display
+SENSOR_DTBO=/etc/autoaimer/pico-sensors.dtbo
+SENSOR_OVERLAY=/sys/kernel/config/device-tree/overlays/autoaimer-sensors
 case "$1" in
     start)
         # 通过内核的动态设备树接口应用已编译配置，无需改写 boot 分区。
@@ -24,6 +27,23 @@ case "$1" in
         if [ -d /proc/device-tree/autoaimer-buttons ]; then
             udevadm settle --timeout=5 || exit 1
             set -- "$@" --buttons
+        fi
+        if [ -f "$SENSORS" ]; then
+            mkdir -p "$SENSOR_OVERLAY" || exit 1
+            if [ "$(cat "$SENSOR_OVERLAY/status")" != 1 ]; then
+                cat "$SENSOR_DTBO" > "$SENSOR_OVERLAY/dtbo" || exit 1
+                echo 1 > "$SENSOR_OVERLAY/status" || exit 1
+                if [ "$(cat "$SENSOR_OVERLAY/status")" != 1 ]; then
+                    echo "AutoAimer sensor device-tree overlay did not activate" >&2
+                    exit 1
+                fi
+            fi
+            udevadm settle --timeout=5 || exit 1
+            if [ ! -c /dev/i2c-3 ] || [ ! -c /dev/ttyS3 ]; then
+                echo "AutoAimer sensor devices are missing" >&2
+                exit 1
+            fi
+            set -- "$@" --sensors
         fi
         if [ -f "$CAMERA" ]; then
             sh /etc/autoaimer/load_sc3336.sh || exit 1

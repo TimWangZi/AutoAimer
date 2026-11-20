@@ -1,0 +1,17 @@
+/dts-v1/;
+/plugin/;
+
+// 标准 Luckfox Pico RV1103：物理脚 9/10 使用 I2C3_M1 连接 ICM-426xx。
+&i2c3 {
+    status = "okay";
+    clock-frequency = <400000>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c3m1_xfer>;
+};
+
+// 物理脚 19/20 使用 UART3_M1 连接 SDM20；波特率由用户态 termios 设置。
+&uart3 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart3m1_xfer>;
+};
